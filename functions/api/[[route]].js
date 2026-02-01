@@ -7,11 +7,11 @@ app.use('/*', cors())
 
 // --- 鉴权中间件 ---
 app.use('/*', async (c, next) => {
-  const path = c.req.path
-  if (path.endsWith('/login') || path.includes('/g/')) return await next()
-  const authHeader = c.req.header('Authorization')
-  if (authHeader !== c.env.ADMIN_PASSWORD) return c.json({ success: false, error: 'Unauthorized' }, 401)
-  await next()
+    const path = c.req.path
+    if (path.endsWith('/login') || path.includes('/g/')) return await next()
+    const authHeader = c.req.header('Authorization')
+    if (authHeader !== c.env.ADMIN_PASSWORD) return c.json({ success: false, error: 'Unauthorized' }, 401)
+    await next()
 })
 app.onError((err, c) => c.json({ error: err.message }, 500))
 
@@ -51,7 +51,7 @@ const deepBase64Decode = (str, depth = 0) => {
         if (clean.length < 10 || /[^A-Za-z0-9+/=_]/.test(clean)) return str;
         let safeStr = clean.replace(/-/g, '+').replace(/_/g, '/');
         while (safeStr.length % 4) safeStr += '=';
-        let binary; try { binary = atob(safeStr); } catch(e) { return str; }
+        let binary; try { binary = atob(safeStr); } catch (e) { return str; }
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const decoded = new TextDecoder('utf-8').decode(bytes);
@@ -74,13 +74,13 @@ const generateNodeLink = (node) => {
                 const base64Part = node.origLink.substring(8);
                 const jsonStr = safeBase64Decode(base64Part);
                 const vmessObj = JSON.parse(jsonStr);
-                vmessObj.ps = node.name; 
+                vmessObj.ps = node.name;
                 return 'vmess://' + safeBase64Encode(JSON.stringify(vmessObj));
             }
             const hashIndex = node.origLink.lastIndexOf('#');
             if (hashIndex !== -1) return node.origLink.substring(0, hashIndex) + '#' + safeName;
             return node.origLink + '#' + safeName;
-        } catch(e) { return node.origLink; }
+        } catch (e) { return node.origLink; }
     }
     try {
         if (node.type === 'vmess') {
@@ -118,10 +118,10 @@ const generateNodeLink = (node) => {
             return `hysteria2://${node.password}@${node.server}:${node.port}?${params.toString()}#${safeName}`;
         }
         if (node.type === 'ss') {
-             const userPart = safeBase64Encode(`${node.cipher}:${node.password}`);
-             return `ss://${userPart}@${node.server}:${node.port}#${safeName}`;
+            const userPart = safeBase64Encode(`${node.cipher}:${node.password}`);
+            return `ss://${userPart}@${node.server}:${node.port}#${safeName}`;
         }
-    } catch (e) {}
+    } catch (e) { }
     return '';
 }
 
@@ -132,7 +132,7 @@ const toClashProxy = (node) => {
         const common = `  - name: ${node.name}
     server: ${node.server}
     port: ${node.port}`;
-        
+
         if (node.type === 'ss') {
             if (!node.cipher || !node.password) return null;
             return `${common}
@@ -211,13 +211,13 @@ const toClashProxy = (node) => {
             return res;
         }
         return null;
-    } catch(e) { return null; }
+    } catch (e) { return null; }
 }
 
 // --- 核心：万能解析器 (增强版：修复自建节点解析不全) ---
 const parseNodesCommon = (text) => {
     const nodes = [];
-    const rawSet = new Set(); 
+    const rawSet = new Set();
     const addNode = (n) => {
         if (!n.name) n.name = 'Node';
         // 确保关键字段存在，否则 Clash 转换器会丢弃
@@ -267,13 +267,13 @@ const parseNodesCommon = (text) => {
                                     if (userPart.includes(':')) {
                                         const p = userPart.split(':'); node.cipher = p[0]; node.password = p[1];
                                     }
-                                } catch(e) { node.password = url.username; }
+                                } catch (e) { node.password = url.username; }
                             }
                         }
                         else node.password = url.username;
                     }
                     node.server = url.hostname; node.port = url.port;
-                    
+
                     // 解析参数
                     const params = url.searchParams;
                     if (params.has('sni')) node.sni = params.get('sni');
@@ -293,7 +293,7 @@ const parseNodesCommon = (text) => {
                     }
                 }
                 addNode(node);
-            } catch(e) {}
+            } catch (e) { }
         }
     }
 
@@ -321,15 +321,15 @@ const parseNodesCommon = (text) => {
                     "client-fingerprint": getVal('client-fingerprint')
                 };
                 const findInBlock = (key) => {
-                    const line = block.find(l => l.includes(key)); if(!line) return undefined;
-                    const m = line.match(new RegExp(`${key}:\\s*(?:['"](.*?)['"]|([^\\s{]+))`)); 
-                    return m ? (m[1]||m[2]).trim() : undefined;
+                    const line = block.find(l => l.includes(key)); if (!line) return undefined;
+                    const m = line.match(new RegExp(`${key}:\\s*(?:['"](.*?)['"]|([^\\s{]+))`));
+                    return m ? (m[1] || m[2]).trim() : undefined;
                 }
-                if(node.network === 'ws' || block.some(l=>l.includes('ws-opts'))) {
+                if (node.network === 'ws' || block.some(l => l.includes('ws-opts'))) {
                     node.network = 'ws';
                     node['ws-opts'] = { path: findInBlock('path') || '/', headers: { Host: findInBlock('Host') || '' } };
                 }
-                if(block.some(l=>l.includes('public-key'))) {
+                if (block.some(l => l.includes('public-key'))) {
                     node.tls = true;
                     node.reality = { publicKey: findInBlock('public-key'), shortId: findInBlock('short-id') };
                 }
@@ -351,7 +351,7 @@ const parseNodesCommon = (text) => {
                 }
             }
             if (currentBlock.length > 0) processYamlBlock(currentBlock);
-        } catch (e) {}
+        } catch (e) { }
     }
     return nodes;
 }
@@ -360,14 +360,14 @@ const parseNodesCommon = (text) => {
 app.get('/g/:token', async (c) => {
     const token = c.req.param('token');
     const format = c.req.query('format') || 'base64';
-    
+
     try {
         const group = await c.env.DB.prepare("SELECT * FROM groups WHERE token = ? AND status = 1").bind(token).first();
         if (!group) return c.text('Invalid Group Token', 404);
-        
+
         const baseConfig = JSON.parse(group.config || '[]');
         const clashConfig = group.clash_config ? JSON.parse(group.clash_config) : { mode: 'generate' };
-        
+
         // 设置文件名 (Clash Verge 等客户端会读取此文件名)
         const filename = encodeURIComponent(group.name || 'GroupConfig');
         c.header('Content-Disposition', `attachment; filename*=UTF-8''${filename}.yaml; filename="${filename}.yaml"`);
@@ -389,8 +389,8 @@ app.get('/g/:token', async (c) => {
 
         for (const item of targetConfig) {
             const sub = await c.env.DB.prepare("SELECT * FROM subscriptions WHERE id = ?").bind(item.subId).first();
-            if (!sub) continue; 
-            
+            if (!sub) continue;
+
             let content = sub.url || "";
             if (!content) continue;
             if (!content) continue;
@@ -398,13 +398,13 @@ app.get('/g/:token', async (c) => {
             const nodes = parseNodesCommon(content);
             let allowed = 'all';
             if (item.include && Array.isArray(item.include) && item.include.length > 0) allowed = new Set(item.include);
-            
+
             for (const node of nodes) {
                 if (allowed !== 'all' && !allowed.has(node.name)) continue;
-                
+
                 // Deterministic Deduplication: 保证名称唯一且稳定
                 let name = node.name.trim();
-                let i = 1; 
+                let i = 1;
                 let originalName = name;
                 while (allNodeNamesSet.has(name)) {
                     name = `${originalName} ${i++}`;
@@ -419,10 +419,10 @@ app.get('/g/:token', async (c) => {
 
         if (format === 'clash') {
             if (!clashConfig) return c.text("Clash config not found.", 404);
-            
+
             let yaml = (clashConfig.header || "") + "\n\nproxies:\n";
             const generatedNodeNames = new Set();
-            
+
             // Generate Proxies
             for (const node of allNodes) {
                 const proxyYaml = toClashProxy(node);
@@ -452,56 +452,96 @@ app.get('/g/:token', async (c) => {
 
         const links = allNodes.map(n => n.link).join('\n');
         return c.text(safeBase64Encode(links), 200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    } catch(e) { return c.text(e.message, 500); }
+    } catch (e) { return c.text(e.message, 500); }
 })
 
 // --- API Endpoints ---
-app.get('/subs', async (c) => { 
-    const {results} = await c.env.DB.prepare("SELECT * FROM subscriptions ORDER BY sort_order ASC, id DESC").all(); 
-    return c.json({success:true, data:results.map(i=>{ try { i.info = JSON.parse(i.info); } catch(e) { i.info = {}; } return i; })}) 
+app.get('/subs', async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM subscriptions ORDER BY sort_order ASC, id DESC").all();
+    return c.json({ success: true, data: results.map(i => { try { i.info = JSON.parse(i.info); } catch (e) { i.info = {}; } return i; }) })
 })
-app.post('/subs', async (c) => { const b=await c.req.json(); await c.env.DB.prepare("INSERT INTO subscriptions (name,url,type,params,info,sort_order,status) VALUES (?,?,?,?,?,0,1)").bind(b.name,b.url,b.type||'sub',JSON.stringify({}),'{}').run(); return c.json({success:true}) })
-app.put('/subs/:id', async (c) => { 
+app.post('/subs', async (c) => {
+    const b = await c.req.json();
+    const type = b.type || 'sub';
+    const content = b.url || "";
+    // 强制服务端解析以获取准确数量
+    const nodes = parseNodesCommon(content);
+
+    // 逻辑：如果是 'node' 类型且包含多个节点，则拆分
+    if (type === 'node' && nodes.length > 1) {
+        const stmt = c.env.DB.prepare("INSERT INTO subscriptions (name,url,type,params,info,sort_order,status) VALUES (?,?,?,?,?,0,1)");
+        const batch = nodes.map((n, i) => {
+            // 命名逻辑：如果用户未填写 name，则使用节点原名；否则使用 "用户填写的名" + 序号 (因为是同一批)
+            let name = b.name ? ((i === 0 && nodes.length === 1) ? b.name : `${b.name} ${i + 1}`) : n.name;
+            // 使用生成的标准链接
+            let url = n.link;
+            let info = JSON.stringify({ nodeCount: 1 });
+            return stmt.bind(name, url, 'node', JSON.stringify({}), info);
+        });
+        await c.env.DB.batch(batch);
+        return c.json({ success: true, count: nodes.length });
+    }
+
+    // 正常单条插入 (Group 或 单个 Node)
+    let info = b.info || {};
+    // 强制更新 nodeCount
+    info.nodeCount = nodes.length;
+
+    await c.env.DB.prepare("INSERT INTO subscriptions (name,url,type,params,info,sort_order,status) VALUES (?,?,?,?,?,0,1)")
+        .bind(b.name || (nodes.length > 0 ? nodes[0].name : 'New Resource'), b.url, type, JSON.stringify({}), JSON.stringify(info)).run();
+    return c.json({ success: true });
+})
+app.put('/subs/:id', async (c) => {
     const b = await c.req.json(); const id = c.req.param('id');
+
+    // 如果更新了 URL，重新计算节点数量
+    if (b.url !== undefined) {
+        const nodes = parseNodesCommon(b.url);
+        if (!b.info) b.info = {};
+        b.info.nodeCount = nodes.length;
+    }
+
     let parts = ["updated_at=CURRENT_TIMESTAMP"]; let args = [];
-    if (b.name!==undefined){parts.push("name=?");args.push(b.name)} if(b.url!==undefined){parts.push("url=?");args.push(b.url)}
-    if (b.type!==undefined){parts.push("type=?");args.push(b.type)} if(b.status!==undefined){parts.push("status=?");args.push(parseInt(b.status))}
-    if (b.info){parts.push("info=?");args.push(JSON.stringify(b.info))}
+    if (b.name !== undefined) { parts.push("name=?"); args.push(b.name) } if (b.url !== undefined) { parts.push("url=?"); args.push(b.url) }
+    if (b.type !== undefined) { parts.push("type=?"); args.push(b.type) } if (b.status !== undefined) { parts.push("status=?"); args.push(parseInt(b.status)) }
+    if (b.info) { parts.push("info=?"); args.push(JSON.stringify(b.info)) }
     const query = `UPDATE subscriptions SET ${parts.join(', ')} WHERE id=?`; args.push(id);
-    await c.env.DB.prepare(query).bind(...args).run(); return c.json({success:true}) 
+    await c.env.DB.prepare(query).bind(...args).run(); return c.json({ success: true })
 })
-app.delete('/subs/:id', async (c) => { await c.env.DB.prepare("DELETE FROM subscriptions WHERE id=?").bind(c.req.param('id')).run(); return c.json({success:true}) })
-app.post('/sort', async (c) => { const {ids}=await c.req.json(); const s=c.env.DB.prepare("UPDATE subscriptions SET sort_order=? WHERE id=?"); await c.env.DB.batch(ids.map((id,i)=>s.bind(i,id))); return c.json({success:true}) })
+app.delete('/subs/:id', async (c) => { await c.env.DB.prepare("DELETE FROM subscriptions WHERE id=?").bind(c.req.param('id')).run(); return c.json({ success: true }) })
+app.post('/sort', async (c) => { const { ids } = await c.req.json(); const s = c.env.DB.prepare("UPDATE subscriptions SET sort_order=? WHERE id=?"); await c.env.DB.batch(ids.map((id, i) => s.bind(i, id))); return c.json({ success: true }) })
 
 // --- 聚合组管理 ---
-app.get('/groups', async (c) => { 
-    const {results} = await c.env.DB.prepare("SELECT * FROM groups ORDER BY sort_order ASC, id DESC").all(); 
-    return c.json({success:true, data:results.map(g => ({
-        ...g, 
-        config: JSON.parse(g.config||'[]'),
-        clash_config: g.clash_config ? JSON.parse(g.clash_config) : { mode: 'generate', header: "", groups: [], rules: "", resources: [], raw_yaml: "" }
-    }))}) 
+app.get('/groups', async (c) => {
+    const { results } = await c.env.DB.prepare("SELECT * FROM groups ORDER BY sort_order ASC, id DESC").all();
+    return c.json({
+        success: true, data: results.map(g => ({
+            ...g,
+            config: JSON.parse(g.config || '[]'),
+            clash_config: g.clash_config ? JSON.parse(g.clash_config) : { mode: 'generate', header: "", groups: [], rules: "", resources: [], raw_yaml: "" }
+        }))
+    })
 })
-app.post('/groups', async (c) => { 
-    const b=await c.req.json(); 
+app.post('/groups', async (c) => {
+    const b = await c.req.json();
     const token = generateToken();
     const clashConfig = b.clash_config || { mode: 'generate', header: "", groups: [], rules: "", resources: [], raw_yaml: "" };
     await c.env.DB.prepare("INSERT INTO groups (name, token, config, clash_config, status, sort_order) VALUES (?, ?, ?, ?, 1, 0)")
-        .bind(b.name, token, JSON.stringify(b.config||[]), JSON.stringify(clashConfig)).run(); 
-    return c.json({success:true}) 
+        .bind(b.name, token, JSON.stringify(b.config || []), JSON.stringify(clashConfig)).run();
+    return c.json({ success: true })
 })
 app.put('/groups/:id', async (c) => {
     const b = await c.req.json(); const id = c.req.param('id');
     let parts = ["updated_at=CURRENT_TIMESTAMP"]; let args = [];
-    if(b.name!==undefined){parts.push("name=?");args.push(b.name)} 
-    if(b.config!==undefined){parts.push("config=?");args.push(JSON.stringify(b.config))}
-    if(b.clash_config!==undefined){parts.push("clash_config=?");args.push(JSON.stringify(b.clash_config))}
-    if(b.status!==undefined){parts.push("status=?");args.push(parseInt(b.status))}
-    if(b.refresh_token){parts.push("token=?");args.push(generateToken())}
+    if (b.name !== undefined) { parts.push("name=?"); args.push(b.name) }
+    if (b.config !== undefined) { parts.push("config=?"); args.push(JSON.stringify(b.config)) }
+    if (b.clash_config !== undefined) { parts.push("clash_config=?"); args.push(JSON.stringify(b.clash_config)) }
+    if (b.status !== undefined) { parts.push("status=?"); args.push(parseInt(b.status)) }
+    if (b.refresh_token) { parts.push("token=?"); args.push(generateToken()) }
     const query = `UPDATE groups SET ${parts.join(', ')} WHERE id=?`; args.push(id);
-    await c.env.DB.prepare(query).bind(...args).run(); return c.json({success:true})
+    await c.env.DB.prepare(query).bind(...args).run(); return c.json({ success: true })
 })
-app.delete('/groups/:id', async (c) => { await c.env.DB.prepare("DELETE FROM groups WHERE id=?").bind(c.req.param('id')).run(); return c.json({success:true}) })
+app.delete('/groups/:id', async (c) => { await c.env.DB.prepare("DELETE FROM groups WHERE id=?").bind(c.req.param('id')).run(); return c.json({ success: true }) })
 
 // --- Check / Login ---
 app.post('/check', async (c) => {
@@ -510,15 +550,15 @@ app.post('/check', async (c) => {
         let content = url || "";
         const nodes = parseNodesCommon(content);
         return c.json({ success: true, data: { valid: true, nodeCount: nodes.length, nodes } });
-    } catch(e) { return c.json({ success: false, error: e.message }) }
+    } catch (e) { return c.json({ success: false, error: e.message }) }
 })
-app.post('/login', async (c) => { const {password}=await c.req.json(); return c.json({success: password===c.env.ADMIN_PASSWORD}) })
-app.get('/settings', async(c)=>{return c.json({success:true,data:{}})}); app.post('/settings', async(c)=>{return c.json({success:true})})
-app.post('/backup/import', async (c) => { 
-    const {items, groups}=await c.req.json(); 
-    if(items) { const s=c.env.DB.prepare("INSERT INTO subscriptions (name, url, type, info, params, status, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)"); await c.env.DB.batch(items.map(i=>s.bind(i.name,i.url,i.type||'subscription',JSON.stringify(i.info),JSON.stringify({}),i.status??1,i.sort_order??0))); }
-    if(groups) { const s=c.env.DB.prepare("INSERT INTO groups (name, token, config, status, sort_order) VALUES (?, ?, ?, ?, ?)"); await c.env.DB.batch(groups.map(g=>s.bind(g.name, g.token, JSON.stringify(g.config), g.status??1, g.sort_order??0))); }
-    return c.json({success:true}) 
+app.post('/login', async (c) => { const { password } = await c.req.json(); return c.json({ success: password === c.env.ADMIN_PASSWORD }) })
+app.get('/settings', async (c) => { return c.json({ success: true, data: {} }) }); app.post('/settings', async (c) => { return c.json({ success: true }) })
+app.post('/backup/import', async (c) => {
+    const { items, groups } = await c.req.json();
+    if (items) { const s = c.env.DB.prepare("INSERT INTO subscriptions (name, url, type, info, params, status, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)"); await c.env.DB.batch(items.map(i => s.bind(i.name, i.url, i.type || 'subscription', JSON.stringify(i.info), JSON.stringify({}), i.status ?? 1, i.sort_order ?? 0))); }
+    if (groups) { const s = c.env.DB.prepare("INSERT INTO groups (name, token, config, status, sort_order) VALUES (?, ?, ?, ?, ?)"); await c.env.DB.batch(groups.map(g => s.bind(g.name, g.token, JSON.stringify(g.config), g.status ?? 1, g.sort_order ?? 0))); }
+    return c.json({ success: true })
 })
 
 export const onRequest = handle(app)
