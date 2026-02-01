@@ -480,6 +480,8 @@
                     const templateModal = reactive({ show: false }) // 新增模板选择模态框
                     const groupForm = ref({ id: null, name: '', config: [], clash_config: { mode: 'generate', header: '', groups: [], rules: '', resources: [], raw_yaml: '' } })
                     const groupNameError = ref(false)
+                    const batchMode = ref(false)
+                    const selectedResources = ref([])
                     const submitting = ref(false)
                     const nodeSelector = reactive({ show: false, loading: false, resourceId: null, resourceName: '', nodes: [], selected: 'all', tempSelected: [] })
                     const clashNodeSelector = reactive({ show: false, loading: false, currentGroup: null, allNodeNames: [], tempSelected: [] })
