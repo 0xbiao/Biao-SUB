@@ -23,12 +23,6 @@ const generateToken = () => {
     return result;
 }
 
-const formatBytes = (bytes) => {
-  if (!bytes || isNaN(bytes) || bytes === 0) return '0 B'
-  const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
 const safeBase64Decode = (str) => {
     if (!str) return '';
     try {
@@ -69,48 +63,7 @@ const deepBase64Decode = (str, depth = 0) => {
     } catch (e) { return str; }
 }
 
-// --- 核心：智能 Fetch (混合抓取模式) ---
-const extractUserInfo = (headers) => {
-    let infoStr = null;
-    headers.forEach((val, key) => { if (key.toLowerCase().includes('userinfo')) infoStr = val; });
-    if (!infoStr) return null;
-    const info = {};
-    const parts = infoStr.split(/;|,\s*/);
-    parts.forEach(part => { const [key, value] = part.trim().split('='); if (key && value) info[key.trim().toLowerCase()] = Number(value); });
-    if (!info.total && !info.upload && !info.download) return null;
-    const usedRaw = (info.upload || 0) + (info.download || 0); const totalRaw = info.total || 0;
-    return {
-        used: formatBytes(usedRaw), total: totalRaw ? formatBytes(totalRaw) : '无限制',
-        expire: info.expire ? new Date(info.expire * 1000).toLocaleDateString() : '长期',
-        percent: totalRaw ? Math.min(100, Math.round(usedRaw / totalRaw * 100)) : 0,
-        raw_total: totalRaw, raw_used: usedRaw, raw_expire: info.expire
-    };
-}
-
-const fetchWithSmartUA = async (url) => {
-  const userAgents = ['v2rayNG/1.8.5', 'ClashMeta/1.0', 'Mozilla/5.0'];
-  let validRes = null; let foundInfo = null;
-  for (const ua of userAgents) {
-    try {
-      const controller = new AbortController(); const id = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(url, { headers: { 'User-Agent': ua }, signal: controller.signal, cache: 'no-store' });
-      clearTimeout(id);
-      if (res.ok) {
-        if (!foundInfo) foundInfo = extractUserInfo(res.headers);
-        if (!validRes) {
-            const clone = res.clone(); const text = await clone.text();
-            if (text.length > 50 && !text.includes('<!DOCTYPE html>')) {
-                Object.defineProperty(clone, 'prefetchedText', { value: text, writable: true });
-                validRes = clone;
-            }
-        }
-        if (validRes && foundInfo) break;
-      }
-    } catch (e) {}
-  }
-  if (validRes) { if (foundInfo) Object.defineProperty(validRes, 'trafficInfo', { value: foundInfo, writable: true }); return validRes; }
-  return null;
-}
+// --- 核心：智能 Fetch (已移除，仅保留本地解析) ---
 
 // --- 核心：生成链接 ---
 const generateNodeLink = (node) => {
@@ -438,12 +391,8 @@ app.get('/g/:token', async (c) => {
             const sub = await c.env.DB.prepare("SELECT * FROM subscriptions WHERE id = ?").bind(item.subId).first();
             if (!sub) continue; 
             
-            let content = "";
-            if (sub.type === 'node') { content = sub.url; } 
-            else {
-                const res = await fetchWithSmartUA(sub.url);
-                if (res && res.ok) content = res.prefetchedText || await res.text();
-            }
+            let content = sub.url || "";
+            if (!content) continue;
             if (!content) continue;
 
             const nodes = parseNodesCommon(content);
@@ -558,16 +507,9 @@ app.delete('/groups/:id', async (c) => { await c.env.DB.prepare("DELETE FROM gro
 app.post('/check', async (c) => {
     const { url, type } = await c.req.json();
     try {
-        let content = ""; let stats = null;
-        if (type === 'node') { content = url; } 
-        else {
-            const res = await fetchWithSmartUA(url);
-            if(!res || !res.ok) throw new Error(`Connect Failed`);
-            content = res.prefetchedText || await res.text();
-            if(res.trafficInfo) stats = res.trafficInfo;
-        }
+        let content = url || "";
         const nodes = parseNodesCommon(content);
-        return c.json({ success: true, data: { valid: true, nodeCount: nodes.length, stats, nodes } });
+        return c.json({ success: true, data: { valid: true, nodeCount: nodes.length, nodes } });
     } catch(e) { return c.json({ success: false, error: e.message }) }
 })
 app.post('/login', async (c) => { const {password}=await c.req.json(); return c.json({success: password===c.env.ADMIN_PASSWORD}) })

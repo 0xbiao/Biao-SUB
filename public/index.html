@@ -63,17 +63,6 @@
                             </div>
                         </div>
                         
-                        <div v-if="item.info && item.info.stats" class="mt-3 bg-slate-900/50 rounded-lg p-3 text-xs text-slate-400">
-                            <div class="flex justify-between items-center mb-1">
-                                <span>已用: <span class="text-white">{{ item.info.stats.used }}</span></span>
-                                <span>总计: <span class="text-white">{{ item.info.stats.total }}</span></span>
-                            </div>
-                            <progress class="progress w-full h-1.5 mb-2" :class="getProgressClass(item.info.stats.percent)" :value="item.info.stats.percent || 0" max="100"></progress>
-                            <div class="flex justify-between">
-                                <span>使用率: {{ item.info.stats.percent }}%</span>
-                                <span :class="{'text-red-400': isExpired(item.info.stats.raw_expire)}">过期: {{ item.info.stats.expire }}</span>
-                            </div>
-                        </div>
                         <div class="mt-2 text-xs text-slate-500 text-right">
                             包含节点: <span class="text-white font-bold">{{ item.info ? (item.info.nodeCount || 0) : 0 }}</span> 个
                         </div>
@@ -134,11 +123,15 @@
                 <div class="flex flex-col gap-4">
                     <input type="text" v-model="resourceForm.name" placeholder="资源名称 (如: 某某机场)" class="input input-bordered w-full bg-slate-900" />
                     <div class="tabs tabs-boxed bg-slate-900">
-                        <a class="tab flex-1" :class="{'tab-active': resourceForm.type==='subscription'}" @click="resourceForm.type='subscription'">订阅链接</a>
-                        <a class="tab flex-1" :class="{'tab-active': resourceForm.type==='node'}" @click="resourceForm.type='node'">自建节点</a>
+                        <a class="tab flex-1" :class="{'tab-active': resourceForm.type==='group'}" @click="resourceForm.type='group'">节点组</a>
+                        <a class="tab flex-1" :class="{'tab-active': resourceForm.type==='node'}" @click="resourceForm.type='node'">单独节点</a>
                     </div>
-                    <textarea v-if="resourceForm.type==='node'" v-model="resourceForm.url" placeholder="vmess://..." class="textarea textarea-bordered h-32 bg-slate-900"></textarea>
-                    <input v-else type="text" v-model="resourceForm.url" placeholder="https://..." class="input input-bordered w-full bg-slate-900" />
+                    <div v-if="resourceForm.type==='group'">
+                        <textarea v-model="resourceForm.url" placeholder="请粘贴节点链接 (支持 vmess, vless, ss 等)，每行一个，或直接粘贴 Base64" class="textarea textarea-bordered h-32 w-full bg-slate-900"></textarea>
+                    </div>
+                    <div v-else>
+                        <input type="text" v-model="resourceForm.url" placeholder="vmess://... (仅限单个节点)" class="input input-bordered w-full bg-slate-900" />
+                    </div>
                 </div>
                 <div class="modal-action">
                     <button class="btn btn-ghost" @click="resourceModal.show=false">取消</button>
@@ -391,7 +384,7 @@ createApp({
         const getProgressClass = (p) => p > 90 ? 'progress-error' : (p > 75 ? 'progress-warning' : 'progress-primary')
         const isExpired = (ts) => ts ? Date.now() > ts * 1000 : false
 
-        const openResourceModal = () => { resourceForm.value = { name: '', url: '', type: 'subscription' }; resourceModal.isEdit = false; resourceModal.show = true }
+        const openResourceModal = () => { resourceForm.value = { name: '', url: '', type: 'group' }; resourceModal.isEdit = false; resourceModal.show = true }
         const editResource = (item) => { resourceForm.value = {...item}; resourceModal.isEdit = true; resourceModal.show = true }
         const saveResource = async () => {
             submitting.value = true
