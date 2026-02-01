@@ -217,6 +217,7 @@
                 </div>
             </dialog>
 
+            <!-- Group Modal -->
             <dialog class="modal" :class="{ 'modal-open': groupModal.show }">
                 <div class="modal-box bg-slate-800 border border-slate-700 max-w-4xl w-11/12">
                     <h3 class="font-bold text-lg text-white mb-4">{{ groupModal.isEdit ? '编辑聚合组' : '新建聚合组' }}</h3>
@@ -226,159 +227,114 @@
                         <input type="text" v-model="groupForm.name" placeholder="请输入聚合组名称 (必填)"
                             class="input input-bordered w-full bg-slate-900" :class="{'input-error': groupNameError}"
                             @input="groupNameError = false" />
-                        <label class="label" v-if="groupNameError"><span class="label-text-alt text-error">名称不能为空，此名称将用作
-                                Clash 配置文件名</span></label>
                     </div>
 
                     <div class="tabs tabs-boxed bg-slate-900 mb-4">
                         <a class="tab" :class="{'tab-active': groupModal.tab==='base'}"
-                            @click="groupModal.tab='base'">基础配置 (V2Ray)</a>
+                            @click="groupModal.tab='base'">节点/资源选择</a>
                         <a class="tab" :class="{'tab-active': groupModal.tab==='clash'}"
-                            @click="groupModal.tab='clash'">Clash 生成</a>
+                            @click="groupModal.tab='clash'">Clash 配置</a>
                         <a class="tab" :class="{'tab-active': groupModal.tab==='raw'}"
                             @click="groupModal.tab='raw'">托管配置 (Raw)</a>
                     </div>
 
+                    <!-- Tab 1: 节点资源选择 (Unified) -->
                     <div v-show="groupModal.tab==='base'" class="flex flex-col gap-4">
-                        <div class="text-sm text-slate-400">选择包含的资源 (V2Ray/Base64 专用)：</div>
+                        <div class="text-sm text-slate-400">请勾选要加入此聚合组的资源：</div>
                         <div
                             class="max-h-96 overflow-y-auto custom-scrollbar bg-slate-900 rounded-lg border border-slate-700 p-2">
                             <div v-for="res in resources" :key="res.id"
                                 class="flex items-center justify-between p-3 border-b border-slate-800 last:border-none hover:bg-slate-800/50">
                                 <label class="flex items-center gap-3 cursor-pointer flex-1">
-                                    <input type="checkbox" :checked="isResSelected(groupForm.config, res.id)"
-                                        @change="toggleResSelection(groupForm.config, res.id)"
-                                        class="checkbox checkbox-accent checkbox-sm" />
-                                    <span>{{ res.name }}</span>
-                                    <span class="badge badge-xs"
-                                        :class="res.type==='node'?'badge-secondary':'badge-primary'">{{ res.type
-                                        }}</span>
+                                    <input type="checkbox" class="checkbox checkbox-accent"
+                                        :checked="isResourceSelected(res.id)"
+                                        @change="toggleResourceSelection(res.id, $event.target.checked)" />
+                                    <div>
+                                        <div class="text-white font-medium">{{ res.name }}</div>
+                                        <div class="text-xs text-slate-500 mt-1">包含节点: {{ res.info.nodeCount || 0 }}
+                                        </div>
+                                    </div>
                                 </label>
-                                <div v-if="isResSelected(groupForm.config, res.id)" class="flex items-center gap-2">
-                                    <span class="text-xs text-slate-500">{{ getResSelectionCount(groupForm.config,
-                                        res.id) }}</span>
-                                    <button @click="openNodeSelector(res, groupForm.config)"
-                                        class="btn btn-xs btn-outline btn-accent">筛选节点</button>
-                                </div>
+                                <button class="btn btn-xs btn-ghost text-accent"
+                                    v-if="res.info.nodeCount > 0 && isResourceSelected(res.id)"
+                                    @click="openNodeSelector(res)">
+                                    <i class="fa-solid fa-filter"></i> 筛选节点
+                                </button>
                             </div>
+                            <div v-if="resources.length===0" class="text-center py-4 text-slate-500">暂无可用资源</div>
                         </div>
                     </div>
 
+                    <!-- Tab 2: Clash 配置 -->
                     <div v-show="groupModal.tab==='clash'" class="flex flex-col gap-4">
-                        <div class="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                            <div class="text-sm font-bold mb-2">选择包含的资源 (Clash 专用)：</div>
-                            <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                <div v-for="res in resources" :key="'clash-'+res.id"
-                                    class="flex items-center justify-between p-2 border-b border-slate-800 last:border-none hover:bg-slate-800/50">
-                                    <label class="flex items-center gap-3 cursor-pointer flex-1">
-                                        <input type="checkbox"
-                                            :checked="isResSelected(groupForm.clash_config.resources, res.id)"
-                                            @change="toggleResSelection(groupForm.clash_config.resources, res.id)"
-                                            class="checkbox checkbox-secondary checkbox-sm" />
-                                        <span>{{ res.name }}</span>
-                                        <span class="badge badge-xs"
-                                            :class="res.type==='node'?'badge-secondary':'badge-primary'">{{ res.type
-                                            }}</span>
-                                    </label>
-                                    <div v-if="isResSelected(groupForm.clash_config.resources, res.id)"
-                                        class="flex items-center gap-2">
-                                        <span class="text-xs text-slate-500">{{
-                                            getResSelectionCount(groupForm.clash_config.resources, res.id) }}</span>
-                                        <button @click="openNodeSelector(res, groupForm.clash_config.resources)"
-                                            class="btn btn-xs btn-outline btn-secondary">筛选节点</button>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="alert alert-info shadow-lg text-xs">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>节点已在“节点/资源选择”中统一管理。此处仅需配置头部、策略组和规则。</span>
                         </div>
-
                         <div class="collapse collapse-arrow bg-slate-900 border border-slate-700">
                             <input type="checkbox" />
-                            <div class="collapse-title text-sm font-bold flex justify-between items-center">
-                                <span>1. 头部配置 (Header)</span>
-                                <button @click.stop="groupForm.clash_config.header=''"
-                                    class="btn btn-xs btn-ghost text-error">清空</button>
-                            </div>
+                            <div class="collapse-title text-sm font-medium text-white">头部配置 (Header)</div>
                             <div class="collapse-content">
                                 <textarea v-model="groupForm.clash_config.header"
-                                    class="code-editor w-full h-32 bg-[#1e1e1e] text-slate-300 p-2 outline-none resize-y rounded"></textarea>
+                                    class="code-editor w-full h-48 bg-[#1e1e1e] text-slate-300 p-2 text-xs outline-none resize-y rounded"></textarea>
                             </div>
                         </div>
-
                         <div class="collapse collapse-arrow bg-slate-900 border border-slate-700">
-                            <input type="checkbox" checked />
-                            <div class="collapse-title text-sm font-bold flex justify-between">
-                                <span>2. 策略组 (Proxy Groups)</span>
-                                <button @click.stop="addClashGroup"
-                                    class="btn btn-xs btn-circle btn-success text-white"><i
-                                        class="fa-solid fa-plus"></i></button>
-                            </div>
-                            <div class="collapse-content px-2">
+                            <input type="checkbox" CHECKED />
+                            <div class="collapse-title text-sm font-medium text-white">策略组 (Proxy Groups)</div>
+                            <div class="collapse-content">
+                                <div class="flex justify-end mb-2">
+                                    <button class="btn btn-xs btn-accent" @click="addClashGroup"><i
+                                            class="fa-solid fa-plus"></i> 添加组</button>
+                                </div>
                                 <div v-for="(g, idx) in groupForm.clash_config.groups" :key="idx"
-                                    class="bg-slate-800 p-2 rounded mb-2 border border-slate-600">
+                                    class="p-2 border border-slate-700 rounded mb-2 bg-[#1e1e1e]">
                                     <div class="flex gap-2 mb-2">
-                                        <input v-model="g.name" placeholder="组名"
-                                            class="input input-sm input-bordered w-1/3 bg-slate-900" />
-                                        <select v-model="g.type" class="select select-sm select-bordered bg-slate-900">
-                                            <option value="select">Select</option>
-                                            <option value="url-test">URL-Test</option>
-                                            <option value="fallback">Fallback</option>
-                                            <option value="load-balance">Load-Balance</option>
+                                        <input v-model="g.name" placeholder="组名 (如 Proxy)"
+                                            class="input input-xs input-bordered bg-slate-800 text-white w-1/3" />
+                                        <select v-model="g.type"
+                                            class="select select-xs select-bordered bg-slate-800 text-white w-1/3">
+                                            <option value="select">select (手动选择)</option>
+                                            <option value="url-test">url-test (自动测速)</option>
+                                            <option value="fallback">fallback (故障转移)</option>
+                                            <option value="load-balance">load-balance (负载均衡)</option>
                                         </select>
-                                        <button @click="openClashNodeSelector(g)"
-                                            class="btn btn-sm btn-outline btn-info">选择节点
-                                            ({{g.proxies?g.proxies.length:0}})</button>
-                                        <button @click="groupForm.clash_config.groups.splice(idx,1)"
-                                            class="btn btn-sm btn-circle btn-ghost text-error"><i
-                                                class="fa-solid fa-times"></i></button>
+                                        <button @click="groupForm.clash_config.groups.splice(idx, 1)"
+                                            class="btn btn-xs btn-ghost text-error"><i
+                                                class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                    <!-- 默认所有节点都加进去，无需手动选择节点进入组，简化操作 -->
+                                    <div class="text-xs text-slate-500 pl-1">
+                                        * 默认包含所有节点及自动生成的策略组。
                                     </div>
                                 </div>
                             </div>
                         </div>
-
                         <div class="collapse collapse-arrow bg-slate-900 border border-slate-700">
                             <input type="checkbox" />
-                            <div class="collapse-title text-sm font-bold flex justify-between items-center">
-                                <span>3. 分流规则 (Rules)</span>
-                                <button @click.stop="groupForm.clash_config.rules=''"
-                                    class="btn btn-xs btn-ghost text-error">清空</button>
-                            </div>
+                            <div class="collapse-title text-sm font-medium text-white">分流规则 (Rules)</div>
                             <div class="collapse-content">
                                 <textarea v-model="groupForm.clash_config.rules"
-                                    class="code-editor w-full h-48 bg-[#1e1e1e] text-slate-300 p-2 outline-none resize-y rounded"></textarea>
+                                    class="code-editor w-full h-64 bg-[#1e1e1e] text-slate-300 p-2 text-xs outline-none resize-y rounded"></textarea>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Tab 3: Raw Mode -->
                     <div v-show="groupModal.tab==='raw'" class="flex flex-col gap-4">
-                        <div class="alert alert-info shadow-lg text-xs">
-                            <div>
-                                <i class="fa-solid fa-info-circle"></i>
-                                <span>启用托管模式后，Clash 订阅将直接返回下方内容。请点击“导入配置”选择本地 .yaml 文件（文件需 < 2MB）。</span>
-                            </div>
+                        <div class="alert alert-warning shadow-lg text-xs">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>启用托管模式后，Clash 订阅将直接返回下方内容，忽略上述所有自动生成配置。</span>
                         </div>
-                        <div class="form-control">
-                            <label class="label cursor-pointer justify-start gap-4">
-                                <span class="label-text text-white">启用托管模式</span>
-                                <input type="checkbox" class="toggle toggle-accent"
-                                    :checked="groupForm.clash_config.mode === 'raw'"
-                                    @change="groupForm.clash_config.mode = $event.target.checked ? 'raw' : 'generate'" />
-                            </label>
-                        </div>
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <span class="label-text text-white">启用托管模式</span>
+                            <input type="checkbox" class="toggle toggle-accent"
+                                :checked="groupForm.clash_config.mode === 'raw'"
+                                @change="groupForm.clash_config.mode = $event.target.checked ? 'raw' : 'generate'" />
+                        </label>
                         <div v-if="groupForm.clash_config.mode === 'raw'">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs text-slate-400">配置内容预览:</span>
-                                <div class="flex gap-2">
-                                    <input type="file" ref="fileInput" accept=".yaml,.yml" class="hidden"
-                                        @change="handleYamlImport" />
-                                    <button class="btn btn-xs btn-accent" @click="$refs.fileInput.click()"><i
-                                            class="fa-solid fa-file-import"></i> 导入配置 (YAML)</button>
-                                    <button class="btn btn-xs btn-ghost text-error"
-                                        @click="groupForm.clash_config.raw_yaml = ''">清空</button>
-                                </div>
-                            </div>
-                            <textarea v-model="groupForm.clash_config.raw_yaml" placeholder="请点击上方按钮导入 .yaml 配置文件..."
-                                class="code-editor w-full h-96 bg-[#1e1e1e] text-slate-300 p-4 outline-none resize-y rounded border border-slate-700"
-                                readonly></textarea>
+                            <textarea v-model="groupForm.clash_config.raw_yaml"
+                                class="code-editor w-full h-96 bg-[#1e1e1e] text-slate-300 p-4 outline-none resize-y rounded border border-slate-700"></textarea>
                         </div>
                     </div>
 
@@ -386,6 +342,30 @@
                         <button class="btn btn-ghost" @click="groupModal.show=false">取消</button>
                         <button class="btn btn-accent text-white" @click="saveGroup"
                             :disabled="submitting">保存聚合组</button>
+                    </div>
+                </div>
+            </dialog>
+
+            <!-- Template Selection Modal -->
+            <dialog class="modal" :class="{ 'modal-open': templateModal.show }">
+                <div class="modal-box bg-slate-800 border border-slate-700">
+                    <h3 class="font-bold text-lg text-white mb-4">选择配置模板</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button @click="selectTemplate('default')"
+                            class="card bg-slate-700 hover:bg-slate-600 cursor-pointer border border-slate-600 transition-all p-4 flex flex-col items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-3xl text-accent"></i>
+                            <div class="font-bold text-white">默认模板</div>
+                            <div class="text-xs text-slate-400 text-center">预置常用规则、DNS及策略组<br>(推荐)</div>
+                        </button>
+                        <button @click="selectTemplate('blank')"
+                            class="card bg-slate-700 hover:bg-slate-600 cursor-pointer border border-slate-600 transition-all p-4 flex flex-col items-center gap-2">
+                            <i class="fa-solid fa-file-code text-3xl text-slate-400"></i>
+                            <div class="font-bold text-white">空白模板</div>
+                            <div class="text-xs text-slate-400 text-center">完全自定义配置<br>(高级用户)</div>
+                        </button>
+                    </div>
+                    <div class="modal-action">
+                        <button class="btn btn-ghost" @click="templateModal.show=false">取消</button>
                     </div>
                 </div>
             </dialog>
@@ -650,10 +630,8 @@ dns:
                 const openResourceModal = () => { resourceForm.value = { name: '', url: '', type: 'group' }; resourceModal.isEdit = false; resourceModal.show = true }
                 const editResource = (item) => { resourceForm.value = { ...item }; resourceModal.isEdit = true; resourceModal.show = true }
                 const saveResource = async () => {
-                    // 校验：节点组必须填写名称
                     if (resourceForm.value.type === 'group' && (!resourceForm.value.name || !resourceForm.value.name.trim())) {
-                        showToast('节点组必须填写名称', 'error');
-                        return;
+                        showToast('节点组必须填写名称', 'error'); return;
                     }
                     submitting.value = true
                     const method = resourceModal.isEdit ? 'PUT' : 'POST'
@@ -689,84 +667,109 @@ dns:
                     selectedResources.value = []; batchMode.value = false; loadResources(); showToast('批量删除成功');
                 }
 
-                const openGroupModal = () => {
-                    groupForm.value = {
-                        name: '', config: [],
-                        clash_config: { mode: 'generate', header: "", groups: [{ name: 'Proxy', type: 'select', proxies: [] }], rules: "", resources: [], raw_yaml: "" }
-                    };
-                    groupNameError.value = false;
-                    groupModal.isEdit = false; groupModal.show = true; groupModal.tab = 'base'
-                }
-                const editGroup = (g) => {
-                    groupForm.value = JSON.parse(JSON.stringify(g));
-                    groupNameError.value = false;
-                    if (!groupForm.value.clash_config) groupForm.value.clash_config = { mode: 'generate', header: "", groups: [], rules: "", resources: [], raw_yaml: "" };
-                    if (!groupForm.value.clash_config.resources) groupForm.value.clash_config.resources = [];
-                    groupModal.isEdit = true; groupModal.show = true; groupModal.tab = 'base'
+                // --- Group & Template Logic ---
+                const openGroupModal = () => { templateModal.show = true }
+                const selectTemplate = (type) => {
+                    templateModal.show = false
+                    groupNameError.value = false; groupModal.isEdit = false; groupModal.tab = 'base'
+
+                    const base = {
+                        name: '',
+                        config: [],
+                        clash_config: { mode: 'generate', resources: [], header: '', groups: [], rules: '', raw_yaml: '' }
+                    }
+
+                    if (type === 'default') {
+                        base.clash_config.header = defaultHeader
+                        base.clash_config.rules = defaultRules
+                        base.clash_config.groups = [{ name: 'Proxy', type: 'select', proxies: [] }]
+                    } else {
+                        base.clash_config.groups = [{ name: 'Proxy', type: 'select', proxies: [] }]
+                    }
+
+                    groupForm.value = base
+                    groupModal.show = true
                 }
 
-                const isResSelected = (list, id) => list.some(c => c.subId === id)
-                const getResSelectionCount = (list, id) => {
-                    const c = list.find(x => x.subId === id)
-                    return (c && Array.isArray(c.include)) ? `已选 ${c.include.length} 个` : '包含所有'
-                }
-                const getGroupResourceCount = (g) => {
-                    let count = (g.config ? g.config.length : 0);
-                    if (g.clash_config && g.clash_config.resources) count += g.clash_config.resources.length;
-                    return count;
+                const editGroup = (group) => {
+                    const g = JSON.parse(JSON.stringify(group))
+                    if (!g.clash_config) g.clash_config = { mode: 'generate', header: '', groups: [], rules: '', resources: [], raw_yaml: '' }
+                    if (!g.config) g.config = []
+                    groupForm.value = g
+                    groupNameError.value = false; groupModal.isEdit = true; groupModal.tab = 'base'; groupModal.show = true
                 }
 
-                const toggleResSelection = (list, id) => {
-                    const idx = list.findIndex(x => x.subId === id)
-                    if (idx > -1) list.splice(idx, 1)
-                    else list.push({ subId: id, include: 'all' })
+                const saveGroup = async () => {
+                    if (!groupForm.value.name) { groupNameError.value = true; return; }
+                    submitting.value = true
+                    if (groupForm.value.clash_config) groupForm.value.clash_config.resources = []
+
+                    const method = groupModal.isEdit ? 'PUT' : 'POST'
+                    const url = groupModal.isEdit ? `${API}/groups/${groupForm.value.id}` : `${API}/groups`
+                    await authFetch(url, { method, body: JSON.stringify(groupForm.value) })
+                    groupModal.show = false; loadGroups(); submitting.value = false
                 }
+                const deleteGroup = async (id) => { if (confirm('确定删除?')) { await authFetch(`${API}/groups/${id}`, { method: 'DELETE' }); loadGroups() } }
+                const refreshToken = async (g) => { if (confirm('重置链接?')) { await authFetch(`${API}/groups/${g.id}`, { method: 'PUT', body: JSON.stringify({ refresh_token: true }) }); loadGroups() } }
+                const copyGroupLink = (g, type) => {
+                    const host = window.location.origin
+                    const url = `${host}/api/g/${g.token}?format=${type}`
+                    navigator.clipboard.writeText(url).then(() => showToast('链接已复制', 'success'))
+                }
+                const getGroupResourceCount = (g) => { return (g.config ? g.config.length : 0); }
                 const getResourceName = (id) => resources.value.find(r => r.id === id)?.name || '未知资源'
 
-                const openNodeSelector = async (res, targetList) => {
-                    nodeSelector.resourceId = res.id; nodeSelector.resourceName = res.name; nodeSelector.targetConfigList = targetList;
+                const openNodeSelector = async (res) => {
+                    nodeSelector.resourceId = res.id; nodeSelector.resourceName = res.name;
                     nodeSelector.show = true; nodeSelector.loading = true;
-                    const currentConf = targetList.find(c => c.subId === res.id)
-                    const checkRes = await authFetch(API + '/check', { method: 'POST', body: JSON.stringify({ url: res.url, type: res.type }) })
-                    const d = await checkRes.json()
-                    if (d.success && d.data.nodes) {
-                        nodeSelector.nodes = d.data.nodes
-                        if (currentConf && Array.isArray(currentConf.include)) {
-                            nodeSelector.selected = 'select'
-                            nodeSelector.tempSelected = [...currentConf.include]
-                        } else {
-                            nodeSelector.selected = 'all'
-                            nodeSelector.tempSelected = d.data.nodes.map(n => n.name)
-                        }
-                    } else { showToast('加载节点失败', 'error') }
+                    // Find current selection in groupForm.config
+                    const currentConf = groupForm.value.config.find(c => c.subId === res.id)
+
+                    try {
+                        const checkRes = await authFetch(API + '/check', { method: 'POST', body: JSON.stringify({ url: res.url, type: res.type }) })
+                        const d = await checkRes.json()
+                        if (d.success && d.data.nodes) {
+                            nodeSelector.nodes = d.data.nodes
+                            if (currentConf && Array.isArray(currentConf.include) && currentConf.include.length > 0) {
+                                nodeSelector.selected = 'select'
+                                nodeSelector.tempSelected = [...currentConf.include]
+                            } else {
+                                nodeSelector.selected = 'all'
+                                nodeSelector.tempSelected = d.data.nodes.map(n => n.name)
+                            }
+                        } else { showToast('加载节点失败', 'error') }
+                    } catch (e) { showToast('加载节点失败', 'error') }
                     nodeSelector.loading = false
                 }
                 const confirmNodeSelection = () => {
-                    const idx = nodeSelector.targetConfigList.findIndex(x => x.subId === nodeSelector.resourceId)
+                    const idx = groupForm.value.config.findIndex(x => x.subId === nodeSelector.resourceId)
                     if (idx > -1) {
-                        if (nodeSelector.tempSelected.length === nodeSelector.nodes.length) nodeSelector.targetConfigList[idx].include = 'all'
-                        else nodeSelector.targetConfigList[idx].include = nodeSelector.tempSelected
+                        if (nodeSelector.selected === 'all' || nodeSelector.tempSelected.length === nodeSelector.nodes.length) {
+                            groupForm.value.config[idx].include = []
+                        } else {
+                            groupForm.value.config[idx].include = nodeSelector.tempSelected
+                        }
                     }
                     nodeSelector.show = false
                 }
 
                 const addClashGroup = () => { groupForm.value.clash_config.groups.push({ name: 'NewGroup', type: 'select', proxies: [] }) }
-
                 const openClashNodeSelector = async (group) => {
                     clashNodeSelector.currentGroup = group; clashNodeSelector.show = true; clashNodeSelector.loading = true;
                     let allNames = []
-                    for (const conf of groupForm.value.clash_config.resources) {
+                    for (const conf of groupForm.value.config) {
                         const res = resources.value.find(r => r.id === conf.subId)
                         if (!res) continue;
                         try {
                             const checkRes = await authFetch(API + '/check', { method: 'POST', body: JSON.stringify({ url: res.url, type: res.type }) })
                             const d = await checkRes.json()
                             if (d.success && d.data.nodes) {
-                                const allowed = (Array.isArray(conf.include)) ? new Set(conf.include) : 'all';
+                                const allowed = (Array.isArray(conf.include) && conf.include.length > 0) ? new Set(conf.include) : 'all';
                                 for (const n of d.data.nodes) {
                                     if (allowed === 'all' || allowed.has(n.name)) {
                                         let name = n.name.trim();
-                                        let i = 1; while (allNames.includes(name)) name = `${n.name} ${i++}`;
+                                        let i = 1; let oname = name;
+                                        while (allNames.includes(name)) name = `${oname} ${i++}`;
                                         allNames.push(name)
                                     }
                                 }
@@ -786,51 +789,24 @@ dns:
                 const handleYamlImport = (event) => {
                     const file = event.target.files[0];
                     if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) {
-                        alert("文件大小不能超过 2MB，以免数据库写入失败。");
-                        event.target.value = '';
-                        return;
-                    }
+                    if (file.size > 2 * 1024 * 1024) { alert("文件过大"); return; }
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        groupForm.value.clash_config.raw_yaml = e.target.result;
-                        showToast("配置导入成功", "success");
-                    };
+                    reader.onload = (e) => { groupForm.value.clash_config.raw_yaml = e.target.result; showToast("导入成功"); };
                     reader.readAsText(file);
                     event.target.value = '';
                 }
 
-                const saveGroup = async () => {
-                    if (!groupForm.value.name || !groupForm.value.name.trim()) {
-                        groupNameError.value = true;
-                        showToast('必须填写聚合组名称', 'error');
-                        return;
-                    }
-                    submitting.value = true
-                    const method = groupModal.isEdit ? 'PUT' : 'POST'
-                    const url = groupModal.isEdit ? `${API}/groups/${groupForm.value.id}` : `${API}/groups`
-                    await authFetch(url, { method, body: JSON.stringify(groupForm.value) })
-                    groupModal.show = false; submitting.value = false; loadGroups()
-                }
-                const deleteGroup = async (id) => { if (confirm('删除此聚合组?')) { await authFetch(`${API}/groups/${id}`, { method: 'DELETE' }); loadGroups() } }
-                const refreshToken = async (g) => { if (confirm('刷新密钥?')) { await authFetch(`${API}/groups/${g.id}`, { method: 'PUT', body: JSON.stringify({ refresh_token: true }) }); loadGroups() } }
-
-                const copyGroupLink = (g, type) => {
-                    const baseUrl = window.location.origin + '/api/g/' + g.token
-                    const url = type === 'clash' ? baseUrl + '?format=clash' : baseUrl
-                    copyText(url)
-                }
-
                 const previewNodes = async (item) => {
                     const res = await authFetch(API + '/check', { method: 'POST', body: JSON.stringify({ url: item.url, type: item.type }) })
-                    const d = await res.json(); if (d.success) { previewModal.nodes = d.data.nodes; previewModal.show = true } else { showToast('预览失败', 'error') }
+                    const d = await res.json()
+                    if (d.success && d.data.nodes) { previewModal.nodes = d.data.nodes; previewModal.show = true }
+                    else { showToast('预览失败', 'error') }
                 }
                 const copyAllPreviewNodes = () => { copyText(previewModal.nodes.map(n => n.link).join('\n')) }
-
                 const openSettings = () => showToast('功能开发中...')
                 const logout = () => { localStorage.removeItem('biaosub_token'); isLoggedIn.value = false }
 
-                if (localStorage.getItem('biaosub_token')) { isLoggedIn.value = true; initData() }
+                if (localStorage.getItem('biaosub_token')) { isLoggedIn.value = true; loadData() }
 
                 return {
                     isLoggedIn, loginPassword, loginLoading, handleLogin, logout,
@@ -838,7 +814,7 @@ dns:
                     batchMode, selectedResources, selectAllResources, executeBatchDelete,
                     resourceModal, resourceForm, openResourceModal, editResource, saveResource, deleteResource, refreshResource,
                     groupModal, groupForm, groupNameError, openGroupModal, editGroup, saveGroup, deleteGroup, refreshToken, copyGroupLink, getGroupResourceCount, handleYamlImport,
-                    isResSelected, getResSelectionCount, toggleResSelection, getResourceName,
+                    templateModal, selectTemplate, toggleResourceSelection, isResourceSelected,
                     nodeSelector, openNodeSelector, confirmNodeSelection,
                     clashNodeSelector, addClashGroup, openClashNodeSelector, clashSelectAll, confirmClashNodeSelection,
                     previewModal, previewNodes, copyText, copyAllPreviewNodes,
